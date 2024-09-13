@@ -18,37 +18,34 @@
 
 #include "computerplayercollection.h"
 
-#include "computerplayer.h"
+#include "boarddrivenplayer.h"
 #include "bogowinplayer.h"
+#include "computerplayer.h"
 #include "endgameplayer.h"
 #include "resolvent.h"
 
 using namespace Quackle;
 
-ComputerPlayerCollection::ComputerPlayerCollection()
-{
+ComputerPlayerCollection::ComputerPlayerCollection() {}
+
+Player ComputerPlayerCollection::createPlayer(ComputerPlayer *computerPlayer) {
+  Player ret(computerPlayer->name(), Player::ComputerPlayerType,
+             computerPlayer->id());
+  ret.setComputerPlayer(computerPlayer);
+  return ret;
 }
 
-Player ComputerPlayerCollection::createPlayer(ComputerPlayer *computerPlayer)
-{
-	Player ret(computerPlayer->name(), Player::ComputerPlayerType, computerPlayer->id());
-	ret.setComputerPlayer(computerPlayer);
-	return ret;
+void ComputerPlayerCollection::addPlayer(ComputerPlayer *computerPlayer) {
+  push_back(createPlayer(computerPlayer));
 }
 
-void ComputerPlayerCollection::addPlayer(ComputerPlayer *computerPlayer)
-{
-	push_back(createPlayer(computerPlayer));
-}
-
-ComputerPlayerCollection ComputerPlayerCollection::fullCollection()
-{
-	ComputerPlayerCollection ret;
-	ret.addPlayer(new EndgamePlayer());
-	ret.addPlayer(new StaticPlayer());
-	ret.addPlayer(new FiveMinutePlayer());
-	ret.addPlayer(new TwentySecondPlayer());
-	ret.addPlayer(new TorontoPlayer());
-        //ret.addPlayer(new InferringPlayer());
-	return ret;
+ComputerPlayerCollection ComputerPlayerCollection::fullCollection() {
+  ComputerPlayerCollection ret;
+  ret.addPlayer(new EndgamePlayer());
+  ret.addPlayer(new StaticPlayer());
+  ret.addPlayer(new FiveMinutePlayer());
+  ret.addPlayer(new TwentySecondPlayer());
+  ret.addPlayer(new TorontoPlayer());
+  ret.addPlayer(new BoardDrivenPlayer());
+  return ret;
 }

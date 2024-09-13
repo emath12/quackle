@@ -21,53 +21,42 @@
 
 #include "quacker.h"
 
-class QuackerApplication : public QApplication
-{
+class QuackerApplication : public QApplication {
 public:
-	QuackerApplication(int& argc, char** argv)
-		: QApplication(argc, argv)
-		, m_TopLevel(NULL)
-	{
-		// empty
-	};
+  QuackerApplication(int &argc, char **argv)
+      : QApplication(argc, argv), m_TopLevel(NULL) {
+          // empty
+        };
 
-	virtual bool event(QEvent* event)
-	{
-		switch(event->type())
-		{
-			case QEvent::FileOpen:
-			{
-				QFileOpenEvent* fileOpenEvent = static_cast<QFileOpenEvent*>(event);
-				if (m_TopLevel && !fileOpenEvent->file().isEmpty())
-				{
-					m_TopLevel->openFile(fileOpenEvent->file());
-					return true;
-				}
-			}
-			// no break
-			default:
-				return QApplication::event(event);
-		}
-	}
+  virtual bool event(QEvent *event) {
+    switch (event->type()) {
+    case QEvent::FileOpen: {
+      QFileOpenEvent *fileOpenEvent = static_cast<QFileOpenEvent *>(event);
+      if (m_TopLevel && !fileOpenEvent->file().isEmpty()) {
+        m_TopLevel->openFile(fileOpenEvent->file());
+        return true;
+      }
+    }
+    // no break
+    default:
+      return QApplication::event(event);
+    }
+  }
 
-	void setTopLevel(TopLevel* topLevel)
-	{
-		m_TopLevel = topLevel;
-	}
+  void setTopLevel(TopLevel *topLevel) { m_TopLevel = topLevel; }
 
 private:
-	TopLevel* m_TopLevel;
+  TopLevel *m_TopLevel;
 };
 
-int main(int argc, char **argv)
-{
-#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0) && QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
-	QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
+int main(int argc, char **argv) {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 6, 0) &&                                \
+     QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
+  QCoreApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
 #endif
-	QuackerApplication a(argc, argv);
-	TopLevel topLevel;
-	a.setTopLevel(&topLevel);
-	topLevel.show();
-	return a.exec();
+  QuackerApplication a(argc, argv);
+  TopLevel topLevel;
+  a.setTopLevel(&topLevel);
+  topLevel.show();
+  return a.exec();
 }
-
