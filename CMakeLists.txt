@@ -71,6 +71,7 @@ set(LIBQUACKLE_HEADERS
 	sim.h
 	strategyparameters.h
 	uv.h
+		# quacker/quacker.cpp
 )
 
 add_library(libquackle

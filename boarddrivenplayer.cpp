@@ -25,7 +25,7 @@
 using namespace Quackle;
 
 BoardDrivenPlayer::BoardDrivenPlayer() {
-  m_name = MARK_UV("Speedy Player");
+  m_name = MARK_UV("Board Driven Player");
   m_id = 2;
 }
 
@@ -55,7 +55,6 @@ MoveList BoardDrivenPlayer::moves(int nmoves) {
   UVcout << "BoardDrivenPlayer solving endgame from position:" << endl;
   UVcout << currentPosition() << endl;
 #endif
-
   MoveList ret;
   Move solution = m_endgame.solve(currentPosition().nestedness());
 
