@@ -143,6 +143,11 @@ string DataManager::findDataFile(const string &subDirectory,
          << endl; // Log if trying the backup lexicon
   }
   if (!fileExists(fname)) {
+    fname = makeDataFilename(subDirectory, "default_english", file, false);
+    cerr << "Trying default lexicon: " << fname
+         << endl; // Log if trying the default lexicon
+  }
+  if (!fileExists(fname)) {
     fname = makeDataFilename(subDirectory, "default", file, false);
     cerr << "Trying default lexicon: " << fname
          << endl; // Log if trying the default lexicon

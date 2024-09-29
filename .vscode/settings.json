@@ -1,6 +1,9 @@
 {
   "C_Cpp.errorSquiggles": "disabled",
   "files.associations": {
-    "vector": "cpp"
+    "vector": "cpp",
+    "bitset": "cpp",
+    "optional": "cpp",
+    "random": "cpp"
   }
 }
