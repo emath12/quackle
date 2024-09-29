@@ -1,28 +1,28 @@
 #include <algorithm>
-#include <iostream>
-#include <limits>
-
+#include <boarddrivenplayer.h>
 #include <boardparameters.h>
 #include <bogowinplayer.h>
+#include <chrono>
 #include <computerplayercollection.h>
 #include <datamanager.h>
 #include <endgameplayer.h>
 #include <enumerator.h>
 #include <game.h>
 #include <gameparameters.h>
+#include <iostream>
 #include <lexiconparameters.h>
-#include <reporter.h>
-#include <resolvent.h>
-#include <strategyparameters.h>
-
+#include <limits>
+#include <map>
 #include <quackleio/dictimplementation.h>
 #include <quackleio/flexiblealphabet.h>
 #include <quackleio/froggetopt.h>
 #include <quackleio/gcgio.h>
 #include <quackleio/util.h>
+#include <reporter.h>
+#include <resolvent.h>
+#include <strategyparameters.h>
 
 int main(int argc, char *argv[]) {
-
   Quackle::DataManager dataManager;
 
   dataManager.setAppDataDirectory(
@@ -36,129 +36,78 @@ int main(int argc, char *argv[]) {
 
   std::cout << "Hello, QUACKLECLI!" << std::endl;
 
-  Quackle::Game game;
+  const int gameCnt = 10;
 
-  Quackle::PlayerList players;
+  std::map<int, int> winnerInfo;
+  std::vector<std::chrono::duration<double>> gameTimes;
 
-  Quackle::Player bogowinA(MARK_UV("BogowinA"),
-                           Quackle::Player::ComputerPlayerType, 110);
+  for (int gameIndex = 0; gameIndex < gameCnt; ++gameIndex) {
+    auto start = std::chrono::high_resolution_clock::now();
 
-  bogowinA.setComputerPlayer(new Quackle::SmartBogowin());
+    std::cout << "Game: " << gameIndex << std::endl;
 
-  players.push_back(bogowinA);
+    Quackle::Game game;
+    Quackle::PlayerList players;
 
-  Quackle::Player bogowinB(MARK_UV("BogowinB"),
-                           Quackle::Player::ComputerPlayerType, 110);
-  bogowinB.setComputerPlayer(new Quackle::SmartBogowin());
-  players.push_back(bogowinB);
+    Quackle::Player speedyA(MARK_UV("Speedy A"),
+                            Quackle::Player::ComputerPlayerType, 110);
+    speedyA.setComputerPlayer(new Quackle::EndgamePlayer());
+    players.push_back(speedyA);
 
-  game.setPlayers(players);
-  game.associateKnownComputerPlayers();
+    Quackle::Player boardDrivePlayer(MARK_UV("Board Driven Player"),
+                                     Quackle::Player::ComputerPlayerType, 110);
+    boardDrivePlayer.setComputerPlayer(new Quackle::BoardDrivenPlayer());
+    players.push_back(boardDrivePlayer);
 
-  game.addPosition();
+    game.setPlayers(players);
+    game.associateKnownComputerPlayers();
+    game.addPosition();
 
-  // const bool setupRetroPosition = false;
+    const int playahead = 50;
 
-  // if (setupRetroPosition) {
-  //   game.commitMove(Quackle::Move::createPlaceMove(
-  //       MARK_UV("8c"),
-  //       QUACKLE_ALPHABET_PARAMETERS->encode(MARK_UV("AMNION"))));
-  //   game.currentPosition().setCurrentPlayerRack(
-  //       Quackle::Rack(QUACKLE_ALPHABET_PARAMETERS->encode(MARK_UV("L"))));
-  //   UVcout << "current rack: " <<
-  //   game.currentPosition().currentPlayer().rack()
-  //          << std::endl;
-  //   game.currentPosition().kibitz(10);
-  //   UVcout << "moves: " << std::endl
-  //          << game.currentPosition().moves() << std::endl;
-  // }
+    for (int i = 0; i < playahead; ++i) {
+      if (game.currentPosition().gameOver()) {
+        std::cout << "GAME OVER" << std::endl;
+        Quackle::PlayerList winners(game.currentPosition().leadingPlayers());
 
-  const int playahead = 50;
+        for (Quackle::PlayerList::const_iterator it = winners.begin();
+             it != winners.end(); ++it) {
+          std::cout << *it << " wins!!" << std::endl;
+          winnerInfo[it->id()] += 1;
+        }
 
-  for (int i = 0; i < playahead; ++i) {
-    if (game.currentPosition().gameOver()) {
-      UVcout << "GAME OVER" << std::endl;
-      break;
+        std::cout << game.currentPosition() << std::endl;
+
+        auto end = std::chrono::high_resolution_clock::now();
+        gameTimes.push_back(end - start);
+        break;
+      }
+
+      const Quackle::Player player(game.currentPosition().currentPlayer());
+      Quackle::Move compMove(game.haveComputerPlay());
+      std::cout << "with " << player.rack() << ", " << player.name()
+                << " commits to " << compMove << std::endl;
     }
-
-    const Quackle::Player player(game.currentPosition().currentPlayer());
-    Quackle::Move compMove(game.haveComputerPlay());
-    UVcout << "with " << player.rack() << ", " << player.name()
-           << " commits to " << compMove << std::endl;
   }
 
-  UVcout << game.currentPosition() << std::endl;
+  if (!gameTimes.empty()) {
+    std::chrono::duration<double> totalDuration =
+        std::chrono::duration<double>::zero();
+
+    for (const auto &duration : gameTimes) {
+      totalDuration += duration;
+    }
+
+    double averageDuration = totalDuration.count() / gameTimes.size();
+    std::cout << "Average game time: " << averageDuration << " seconds"
+              << std::endl;
+  } else {
+    std::cout << "No games played." << std::endl;
+  }
+
+  for (const auto &pair : winnerInfo) {
+    std::cout << pair.first << ": " << pair.second << std::endl;
+  }
 
   return 0;
 }
-
-// int main(int argc, char *argv[]) {
-//   std::cout << "Hello, QuackleCLI!" << std::endl;
-
-//   // Initialize the DataManager
-//   Quackle::DataManager dm;
-//   dm.setComputerPlayers(Quackle::ComputerPlayerCollection::fullCollection());
-
-//   // Create two computer players
-//   Quackle::PlayerList players;
-
-//   Quackle::Player bogowinA(MARK_UV("BogowinA"),
-//                            Quackle::Player::ComputerPlayerType, 110);
-//   bogowinA.setComputerPlayer(new Quackle::SmartBogowin());
-//   players.push_back(bogowinA);
-
-//   Quackle::Player bogowinB(MARK_UV("BogowinB"),
-//                            Quackle::Player::ComputerPlayerType, 110);
-//   bogowinB.setComputerPlayer(new Quackle::SmartBogowin());
-//   players.push_back(bogowinB);
-
-//   // Set up the game with the players
-//   Quackle::Game game;
-//   game.setPlayers(players);
-//   game.associateKnownComputerPlayers();
-//   game.addPosition();
-
-//   const bool setupRetroPosition = false;
-
-//   if (setupRetroPosition) {
-//     game.commitMove(Quackle::Move::createPlaceMove(
-//         MARK_UV("8c"),
-//         QUACKLE_ALPHABET_PARAMETERS->encode(MARK_UV("AMNION"))));
-//     game.currentPosition().setCurrentPlayerRack(
-//         Quackle::Rack(QUACKLE_ALPHABET_PARAMETERS->encode(MARK_UV("L"))));
-//     std::cout << "Current rack: "
-//               << game.currentPosition().currentPlayer().rack() << std::endl;
-//     game.currentPosition().kibitz(10);
-//     std::cout << "Moves: " << game.currentPosition().moves() << std::endl;
-//   }
-
-//   const int playahead = 50;
-
-//   // Main game loop
-//   for (int i = 0; i < playahead; ++i) {
-//     if (game.currentPosition().gameOver()) {
-//       std::cout << "GAME OVER" << std::endl;
-//       break;
-//     }
-
-//     Quackle::Player currentPlayer = game.currentPosition().currentPlayer();
-//     Quackle::Move compMove = game.haveComputerPlay();
-
-//     // Output player's status and move
-//     std::cout << "With " << currentPlayer.rack().toString() << ", "
-//               << currentPlayer.name()
-//               << " commits to move: " << compMove.debugString() << std::endl;
-
-//     // Optionally, print the board after each move
-//     std::cout << "Board:\n"
-//               << game.currentPosition().board().toString() << std::endl;
-//   }
-
-//   std::cout << "Final board position:\n"
-//             << game.currentPosition().board().toString() << std::endl;
-
-//   // Optionally, generate a report or run additional tests here
-//   // testGameReport(game);
-
-//   return 0;
-// }
