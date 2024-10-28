@@ -19,6 +19,7 @@
 #include <iostream>
 #include <time.h>
 
+#include "boarddrivenplayer.h"
 #include "bogowinplayer.h"
 #include "endgameplayer.h"
 #include "preendgame.h"
@@ -26,100 +27,83 @@
 
 using namespace Quackle;
 
-Resolvent::Resolvent()
-{
-    m_name = MARK_UV("Resolvent");
-    m_id = 201;
+Resolvent::Resolvent() {
+  m_name = MARK_UV("Resolvent");
+  m_id = 201;
+  m_parameters.version = 1;
 }
 
-Resolvent::~Resolvent()
-{
+Resolvent::~Resolvent() {}
+
+Move Resolvent::move() { return moves(1).back(); }
+
+MoveList Resolvent::moves(int nmoves) {
+  // UVcout << "Resolvent generating move from position:" << endl;
+  // UVcout << m_simulator.currentPosition() << endl;
+
+  ComputerPlayer *delegatee;
+
+  if (m_simulator.currentPosition().bag().empty()) {
+    // Case 1: Straight endgame.
+    delegatee = new EndgamePlayer;
+  } else if (currentPosition().bag().size() <=
+             Preendgame::maximumTilesInBagToEngage()) {
+    // Case 2: Preendgame.
+    delegatee = new Preendgame;
+  } else {
+    // Case 3: Beginning and middle of the game.
+    delegatee = new SmartBogowin;
+  }
+
+  delegatee->setParameters(parameters());
+  delegatee->setDispatch(currentPosition().nestedness() > 0 ? 0 : m_dispatch);
+  delegatee->setPosition(m_simulator.currentPosition());
+  delegatee->setConsideredMoves(m_simulator.consideredMoves());
+  MoveList moves = delegatee->moves(nmoves);
+  delete delegatee;
+
+  return moves;
 }
 
-Move Resolvent::move()
-{
-    return moves(1).back();
+bool Resolvent::isSlow() const { return true; }
+
+InferringPlayer::InferringPlayer() {
+  m_name = MARK_UV("Inferring Player");
+  m_id = 2012;
+  m_parameters.secondsPerTurn = 20;
+  m_parameters.inferring = true;
 }
 
-MoveList Resolvent::moves(int nmoves)
-{
-    // UVcout << "Resolvent generating move from position:" << endl;
-    // UVcout << m_simulator.currentPosition() << endl;
+InferringPlayer::~InferringPlayer() {}
 
-    ComputerPlayer *delegatee;
-
-    if (m_simulator.currentPosition().bag().empty())
-    {
-        // Case 1: Straight endgame.
-        delegatee = new EndgamePlayer;
-    }
-    else if (currentPosition().bag().size() <= Preendgame::maximumTilesInBagToEngage())
-    {
-        // Case 2: Preendgame.
-        delegatee = new Preendgame;
-    }
-    else
-    {
-        // Case 3: Beginning and middle of the game.
-        delegatee = new SmartBogowin;
-    }
-
-    delegatee->setParameters(parameters());
-    delegatee->setDispatch(currentPosition().nestedness() > 0? 0 : m_dispatch);
-    delegatee->setPosition(m_simulator.currentPosition());
-    delegatee->setConsideredMoves(m_simulator.consideredMoves());
-    MoveList moves = delegatee->moves(nmoves);
-    delete delegatee;
-
-    return moves;
+TorontoPlayer::TorontoPlayer() {
+  m_name = MARK_UV("Championship Player");
+  m_id = 2006;
+  m_parameters.secondsPerTurn = 66;
 }
 
-bool Resolvent::isSlow() const
-{
-    return true;
+TorontoPlayer::~TorontoPlayer() {}
+
+FiveMinutePlayer::FiveMinutePlayer() {
+  m_name = MARK_UV("Five Minute Championship Player");
+  m_id = 5208;
+  m_parameters.secondsPerTurn = 60 * 5;
 }
 
-InferringPlayer::InferringPlayer()
-{
-    m_name = MARK_UV("Inferring Player");
-    m_id = 2012;
-    m_parameters.secondsPerTurn = 20;
-    m_parameters.inferring = true;
+FiveMinutePlayer::~FiveMinutePlayer() {}
+
+TwentySecondPlayer::TwentySecondPlayer() {
+  m_name = MARK_UV("Twenty Second Championship Player");
+  m_id = 5209;
+  m_parameters.secondsPerTurn = 20;
 }
 
-InferringPlayer::~InferringPlayer()
-{
-}
+TwentySecondPlayer::~TwentySecondPlayer() {}
 
-TorontoPlayer::TorontoPlayer()
-{
-	m_name = MARK_UV("Championship Player");
-	m_id = 2006;
-	m_parameters.secondsPerTurn = 66;
-}
+// BoardDrivenPlayer::BoardDrivenPlayer() {
+//   m_name = MARK_UV("Board Driven Player");
+//   m_id = 5000;
+//   m_parameters.secondsPerTurn = 60 * 5;
+// }
 
-TorontoPlayer::~TorontoPlayer()
-{
-}
-
-FiveMinutePlayer::FiveMinutePlayer()
-{
-	m_name = MARK_UV("Five Minute Championship Player");
-	m_id = 5208;
-	m_parameters.secondsPerTurn = 60 * 5;
-}
-
-FiveMinutePlayer::~FiveMinutePlayer()
-{
-}
-
-TwentySecondPlayer::TwentySecondPlayer()
-{
-	m_name = MARK_UV("Twenty Second Championship Player");
-	m_id = 5209;
-	m_parameters.secondsPerTurn = 20;
-}
-
-TwentySecondPlayer::~TwentySecondPlayer()
-{
-}
+// BoardDrivenPlayer::~BoardDrivenPlayer() {}

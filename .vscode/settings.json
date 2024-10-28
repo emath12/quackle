@@ -4,6 +4,7 @@
     "vector": "cpp",
     "bitset": "cpp",
     "optional": "cpp",
-    "random": "cpp"
+    "random": "cpp",
+    "string": "cpp"
   }
 }

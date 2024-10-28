@@ -8,6 +8,7 @@
 #include <datamanager.h>
 #include <endgameplayer.h>
 #include <enumerator.h>
+#include <fstream>
 #include <game.h>
 #include <gameparameters.h>
 #include <iostream>
@@ -36,7 +37,8 @@ struct TurnDurationInfo {
 
 void simulateGames(int startGameIndex, int numGames,
                    Quackle::DataManager &dataManager,
-                   std::map<int, int> &winnerInfo,
+                   std::map<int, int> &winnerCounts,
+                   std::map<int, int> &gameIndexToWinner,
                    std::vector<std::chrono::duration<double>> &gameTimes,
                    std::map<int, TurnDurationInfo> &turnDurationInfo) {
   for (int gameIndex = startGameIndex; gameIndex < startGameIndex + numGames;
@@ -46,15 +48,15 @@ void simulateGames(int startGameIndex, int numGames,
     Quackle::Game game;
     Quackle::PlayerList players;
 
-    Quackle::Player speedyA(MARK_UV("Speedy A"),
+    Quackle::Player speedyA(MARK_UV("Resolvent A"),
                             Quackle::Player::ComputerPlayerType, 110);
-    speedyA.setComputerPlayer(new Quackle::EndgamePlayer());
+    speedyA.setComputerPlayer(new Quackle::Resolvent());
     players.push_back(speedyA);
 
-    Quackle::Player boardDrivePlayer(MARK_UV("Board Driven Player"),
-                                     Quackle::Player::ComputerPlayerType, 110);
-    boardDrivePlayer.setComputerPlayer(new Quackle::BoardDrivenPlayer());
-    players.push_back(boardDrivePlayer);
+    Quackle::Player boardDrivenPlayer(MARK_UV("Resolvent B"),
+                                      Quackle::Player::ComputerPlayerType, 110);
+    boardDrivenPlayer.setComputerPlayer(new Quackle::BoardDrivenPlayer(game));
+    players.push_back(boardDrivenPlayer);
 
     game.setPlayers(players);
     game.associateKnownComputerPlayers();
@@ -69,7 +71,8 @@ void simulateGames(int startGameIndex, int numGames,
              it != winners.end(); ++it) {
           {
             std::lock_guard<std::mutex> lock(data_mutex);
-            winnerInfo[it->id()] += 1;
+            winnerCounts[it->id()] += 1;
+            gameIndexToWinner[gameIndex] = it->id();
           }
         }
 
@@ -95,12 +98,6 @@ void simulateGames(int startGameIndex, int numGames,
         turnDurationInfo[player.id()].turnCount += 1;
       }
     }
-
-    if (!game.currentPosition().gameOver()) {
-      auto end = std::chrono::high_resolution_clock::now();
-      std::lock_guard<std::mutex> lock(data_mutex);
-      gameTimes.push_back(end - start);
-    }
   }
 }
 
@@ -117,40 +114,6 @@ double calculatePValue(int winsPlayer1, int winsPlayer2, int totalGames) {
   return 2 * (1 - std::erf(std::abs(tStatistic) / sqrt(2.0)));
 }
 
-void reportResults(const std::map<int, int> &winnerInfo,
-                   const std::vector<std::chrono::duration<double>> &gameTimes,
-                   int totalGames) {
-  if (!gameTimes.empty()) {
-    std::chrono::duration<double> totalDuration =
-        std::chrono::duration<double>::zero();
-    for (const auto &duration : gameTimes) {
-      totalDuration += duration;
-    }
-
-    double averageDuration = totalDuration.count() / gameTimes.size();
-    std::cout << "Average game time: " << averageDuration << " seconds"
-              << std::endl;
-  } else {
-    std::cout << "No games played." << std::endl;
-  }
-
-  // Report wins
-  for (const auto &pair : winnerInfo) {
-    std::cout << "Player " << pair.first << ": " << pair.second << " wins"
-              << std::endl;
-  }
-
-  if (winnerInfo.size() >= 2) {
-    auto it = winnerInfo.begin();
-    int winsPlayer1 = it->second;
-    int winsPlayer2 = (++it)->second;
-
-    double pValue = calculatePValue(winsPlayer1, winsPlayer2, totalGames);
-    std::cout << "P-value for victory margin between Player 0 and Player 1: "
-              << pValue << std::endl;
-  }
-}
-
 void reportAverageTurnLengths(
     const std::map<int, TurnDurationInfo> &turnDurationInfo) {
   for (const auto &pair : turnDurationInfo) {
@@ -164,6 +127,71 @@ void reportAverageTurnLengths(
       std::cout << "Player " << playerId << " had no turns." << std::endl;
     }
   }
+}
+
+void reportResults(const std::map<int, int> &winnerCounts,
+                   const std::map<int, int> &gameIndexToWinner,
+                   const std::vector<std::chrono::duration<double>> &gameTimes,
+                   const std::map<int, TurnDurationInfo> &turnDurationInfo,
+                   int totalGames) {
+
+  if (gameTimes.empty()) {
+    std::cout << "No games played." << std::endl;
+    return;
+  }
+
+  std::chrono::duration<double> totalDuration =
+      std::chrono::duration<double>::zero();
+
+  std::ofstream gameStats("game_stats.csv");
+  std::ofstream simulationSetResults("simulation_set_results.csv");
+
+  gameStats << "Game_id,game_len,winner,avg_turn_len";
+  gameStats << "\n";
+
+  for (const auto &pair : gameIndexToWinner) {
+    gameStats << pair.first << "," << gameTimes[pair.first].count() << ","
+              << gameIndexToWinner.at(pair.first) << ",";
+    double averageTurnLength;
+    int playerId = pair.first;
+
+    if (turnDurationInfo.find(playerId) != turnDurationInfo.end()) {
+      const TurnDurationInfo &info = turnDurationInfo.at(playerId);
+      if (info.turnCount > 0) {
+        averageTurnLength = info.totalTurnLength / info.turnCount;
+      } else {
+        std::cout << "Player " << playerId << " had no turns." << std::endl;
+      }
+    }
+
+    gameStats << averageTurnLength << "\n";
+  }
+
+  gameStats.close();
+
+  for (const auto &duration : gameTimes) {
+    totalDuration += duration;
+  }
+
+  double averageDuration = totalDuration.count() / gameTimes.size();
+
+  double pValue =
+      calculatePValue(winnerCounts.at(0), winnerCounts.at(1), totalGames);
+
+  for (const auto &pair : winnerCounts) {
+    std::cout << "Game ID: " << pair.first << ", Wins: " << pair.second
+              << std::endl;
+  }
+
+  simulationSetResults << "num_of_games,avg_game_len,p_1_type,p_2_type,p_1_"
+                          "wins,p_2_wins,p_value";
+  simulationSetResults << "\n";
+  simulationSetResults << gameTimes.size() << "," << averageDuration << ","
+                       << "Modified" << ","
+                       << "Unmodified" << "," << winnerCounts.at(0) << ","
+                       << winnerCounts.at(1) << "," << pValue << "\n";
+
+  simulationSetResults.close();
 }
 
 int main(int argc, char *argv[]) {
@@ -183,9 +211,10 @@ int main(int argc, char *argv[]) {
     gameCnt = std::max(1, std::atoi(argv[1]));
   }
 
-  const int numThreads = 16;
+  const int numThreads = std::min(16, gameCnt);
 
-  std::map<int, int> winnerInfo;
+  std::map<int, int> winnerCounts;
+  std::map<int, int> gameIndexToWinner;
   std::vector<std::chrono::duration<double>> gameTimes;
   std::map<int, TurnDurationInfo> turnDurationInfo;
 
@@ -193,16 +222,17 @@ int main(int argc, char *argv[]) {
 
   for (int t = 0; t < numThreads; ++t) {
     int startGameIndex = t * (gameCnt / numThreads);
-    threads.push_back(std::thread(simulateGames, startGameIndex,
-                                  gameCnt / numThreads, std::ref(dataManager),
-                                  std::ref(winnerInfo), std::ref(gameTimes),
-                                  std::ref(turnDurationInfo)));
+    threads.push_back(
+        std::thread(simulateGames, startGameIndex, gameCnt / numThreads,
+                    std::ref(dataManager), std::ref(winnerCounts),
+                    std::ref(gameIndexToWinner), std::ref(gameTimes),
+                    std::ref(turnDurationInfo)));
   }
 
   for (auto &th : threads) {
     th.join();
   }
 
-  reportResults(winnerInfo, gameTimes, gameCnt);
-  reportAverageTurnLengths(turnDurationInfo);
+  reportResults(winnerCounts, gameIndexToWinner, gameTimes, turnDurationInfo,
+                gameCnt);
 }

@@ -21,12 +21,13 @@
 
 #include "computerplayer.h"
 #include "endgame.h"
+#include "game.h"
 
 namespace Quackle {
 
 class BoardDrivenPlayer : public ComputerPlayer {
 public:
-  BoardDrivenPlayer();
+  BoardDrivenPlayer(Game game = Game());
   virtual ~BoardDrivenPlayer();
 
   virtual Move move();
